@@ -1,0 +1,22 @@
+<resources>
+    <string name="app_name">NMEA Player</string>
+    <string name="exit_app">Exit / Beenden</string>
+    <string name="exit_app_button">Exit / Beenden</string>
+    <string name="notification_channel_name">NMEA Server Status</string>
+    <string name="notification_channel_desc">Shows NMEA TCP Server playback and client connection status</string>
+    <string name="notification_title_running">NMEA TCP Server: Running</string>
+    <string name="notification_title_starting">NMEA TCP Server: Starting&#8230;</string>
+    <string name="notification_title_stopped">NMEA TCP Server: Stopped</string>
+    <string name="notification_title_error">NMEA TCP Server: Error</string>
+    <string name="notification_content_format">Port: %1$d | Clients: %2$d | %3$s | %4$s</string>
+    <string name="playback_playing">Playing</string>
+    <string name="playback_paused">Paused</string>
+    <string name="playback_stopped">Stopped</string>
+    <string name="action_pause">Pause</string>
+    <string name="action_resume">Resume</string>
+    <string name="action_play">Play</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_exit">Exit / Beenden</string>
+    <string name="app_subtitle">GPS Log Streamer &amp; Simulator</string>
+    <string name="refresh_ip">Refresh Device IP</string>
+</resources>
