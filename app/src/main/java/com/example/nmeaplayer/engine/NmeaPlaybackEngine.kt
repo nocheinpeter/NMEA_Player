@@ -176,7 +176,7 @@ class NmeaPlaybackEngine(
                 onSentenceBroadcast?.invoke(sentence)
 
                 // Compute speed-adjusted delay
-                val baseDelay = sentence.baseDelayMs
+                val baseDelay = min(a = sentence.baseDelayMs, b = 5000)
                 val currentSpeed = _speedMultiplier.value.coerceAtLeast(0.1f)
                 val adjustedDelayMs = (baseDelay / currentSpeed).toLong()
 
