@@ -6,13 +6,13 @@ plugins {
 }
 
 android {
-    namespace = "com.example.nmeaplayer"
+    namespace = "de.nocheinpeter.nmeaplayer"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "com.example.nmeaplayer"
+        applicationId = "de.nocheinpeter.nmeaplayer"
         minSdk = 29
         targetSdk = 37
         versionCode = 1
@@ -36,6 +36,10 @@ android {
     buildFeatures {
         compose = true
     }
+}
+
+base {
+    archivesName.set("NMEAPlayer")
 }
 
 dependencies {
