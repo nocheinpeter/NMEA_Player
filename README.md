@@ -14,7 +14,10 @@ Aktuelle Pre-Release: https://github.com/nocheinpeter/NMEA_Player/releases/downl
 
 
 # Konfiguration
-![Beispiel Konfiguration](doc/NMEA%20Player%20Config.png)
+![Beispiel Konfiguration mit AvNav](doc/NMEA%20Player%20Config.png)
+
+![Beispiel Konfiguration openCPN](doc/NMEA%20Player%20Config%20OpenCPN.png)
+
 ---
 
 ## 🇬🇧 English Feature Summary
