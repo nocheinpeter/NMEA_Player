@@ -10,6 +10,8 @@
 
 Die App liest NMEA 0183- und AIS-Daten zeilenweise aus lokalen Textdateien ein und überträgt diese über ein lokales TCP-Netzwerk an verbundene Marine- und GPS-Navigationsclients.
 
+# Konfiguration
+![Beispiel Konfiguration](doc/NMEA%20Player%20Config.png)
 ---
 
 ## 🇬🇧 English Feature Summary
