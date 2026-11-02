@@ -41,7 +41,7 @@ class MainViewModelTest {
         tcpServerManager = TcpServerManager(defaultPort = testPort)
         playbackEngine = NmeaPlaybackEngine(dispatcher = testDispatcher)
 
-        viewModel = MainViewModel(tcpServerManager, playbackEngine)
+        viewModel = MainViewModel(tcpServerManager, playbackEngine, ioDispatcher = testDispatcher)
     }
 
     @After
@@ -58,6 +58,32 @@ class MainViewModelTest {
         assertTrue(viewModel.totalSentences.value > 0)
         assertEquals("Sample GPS Track", viewModel.fileName.value)
         assertNull(viewModel.portError.value)
+        assertEquals(false, viewModel.isFileLoading.value)
+        assertNull(viewModel.fileLoadingProgress.value)
+        assertNotNull(viewModel.fileLoadingMessage.value)
+        assertNotNull(viewModel.currentUtcTime.value)
+    }
+
+    @Test
+    fun testLoadSampleDataUpdatesLoadingState() = runBlocking {
+        viewModel.loadSampleData(null)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(false, viewModel.isFileLoading.value)
+        assertTrue(viewModel.totalSentences.value > 0)
+        assertEquals("Sample GPS Log", viewModel.fileName.value)
+    }
+
+    @Test
+    fun testSeekingUpdatesCurrentUtcTime() {
+        viewModel.seekToLine(0)
+        val timeAtZero = viewModel.currentUtcTime.value
+        assertNotNull(timeAtZero)
+
+        viewModel.seekToProgress(0.5f)
+        val timeAtHalf = viewModel.currentUtcTime.value
+        assertNotNull(timeAtHalf)
+        assertEquals(viewModel.currentTimeString.value, viewModel.currentUtcTime.value)
     }
 
     @Test

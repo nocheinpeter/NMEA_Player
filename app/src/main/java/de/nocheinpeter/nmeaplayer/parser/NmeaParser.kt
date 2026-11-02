@@ -21,10 +21,13 @@ object NmeaParser {
     /**
      * Parses NMEA sentences from an [InputStream].
      */
-    fun parseInputStream(inputStream: InputStream): List<NmeaSentence> {
+    fun parseInputStream(
+        inputStream: InputStream,
+        onProgress: ((linesProcessed: Int, totalLines: Int?) -> Unit)? = null
+    ): List<NmeaSentence> {
         return try {
             val reader = BufferedReader(InputStreamReader(inputStream, Charsets.UTF_8))
-            parseReader(reader)
+            parseReader(reader, onProgress = onProgress)
         } catch (e: Exception) {
             emptyList()
         }
@@ -33,10 +36,14 @@ object NmeaParser {
     /**
      * Parses NMEA sentences from an Android [Uri].
      */
-    fun parseUri(context: Context, uri: Uri): List<NmeaSentence> {
+    fun parseUri(
+        context: Context,
+        uri: Uri,
+        onProgress: ((linesProcessed: Int, totalLines: Int?) -> Unit)? = null
+    ): List<NmeaSentence> {
         return try {
             context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                parseInputStream(inputStream)
+                parseInputStream(inputStream, onProgress = onProgress)
             } ?: emptyList()
         } catch (e: Exception) {
             emptyList()
@@ -46,10 +53,14 @@ object NmeaParser {
     /**
      * Parses NMEA sentences from an Android asset file.
      */
-    fun parseAsset(context: Context, assetFileName: String): List<NmeaSentence> {
+    fun parseAsset(
+        context: Context,
+        assetFileName: String,
+        onProgress: ((linesProcessed: Int, totalLines: Int?) -> Unit)? = null
+    ): List<NmeaSentence> {
         return try {
             context.assets.open(assetFileName).use { inputStream ->
-                parseInputStream(inputStream)
+                parseInputStream(inputStream, onProgress = onProgress)
             }
         } catch (e: Exception) {
             emptyList()
@@ -59,18 +70,27 @@ object NmeaParser {
     /**
      * Parses NMEA sentences from a [String] containing raw log content.
      */
-    fun parseString(content: String): List<NmeaSentence> {
+    fun parseString(
+        content: String,
+        onProgress: ((linesProcessed: Int, totalLines: Int?) -> Unit)? = null
+    ): List<NmeaSentence> {
         val reader = BufferedReader(content.reader())
-        return parseReader(reader)
+        return parseReader(reader, onProgress = onProgress)
     }
 
     /**
      * Parses NMEA sentences from a [BufferedReader].
      */
-    fun parseReader(reader: BufferedReader): List<NmeaSentence> {
+    fun parseReader(
+        reader: BufferedReader,
+        totalLines: Int? = null,
+        onProgress: ((linesProcessed: Int, totalLines: Int?) -> Unit)? = null
+    ): List<NmeaSentence> {
         val sentences = mutableListOf<NmeaSentence>()
         var lineIndex = 0
         var previousRmcEpochMs: Long? = null
+
+        onProgress?.invoke(0, totalLines)
 
         reader.forEachLine { rawLine ->
             val trimmed = rawLine.trim()
@@ -81,8 +101,12 @@ object NmeaParser {
                 }
                 sentences.add(parsed)
                 lineIndex++
+                if (lineIndex % 500 == 0 || (totalLines != null && lineIndex == totalLines)) {
+                    onProgress?.invoke(lineIndex, totalLines)
+                }
             }
         }
+        onProgress?.invoke(lineIndex, totalLines)
         return sentences
     }
 

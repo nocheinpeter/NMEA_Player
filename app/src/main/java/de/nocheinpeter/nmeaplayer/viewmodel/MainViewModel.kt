@@ -16,6 +16,7 @@ import de.nocheinpeter.nmeaplayer.server.NmeaServerRepository
 import de.nocheinpeter.nmeaplayer.server.ServerState
 import de.nocheinpeter.nmeaplayer.server.TcpServerManager
 import de.nocheinpeter.nmeaplayer.service.NmeaServerService
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -23,10 +24,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.util.Locale
 
 class MainViewModel(
     val tcpServerManager: TcpServerManager = NmeaServerRepository.tcpServerManager,
     val playbackEngine: NmeaPlaybackEngine = NmeaServerRepository.playbackEngine,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ViewModel() {
 
     companion object {
@@ -46,11 +49,21 @@ class MainViewModel(
     val playbackState: StateFlow<PlaybackState> = playbackEngine.playbackState
     val currentSentence: StateFlow<NmeaSentence?> = playbackEngine.currentSentence
     val currentTimeString: StateFlow<String> = playbackEngine.currentTimeString
+    val currentUtcTime: StateFlow<String> = playbackEngine.currentUtcTime
     val progress: StateFlow<Float> = playbackEngine.progress
     val currentIndex: StateFlow<Int> = playbackEngine.currentIndex
     val totalSentences: StateFlow<Int> = playbackEngine.totalSentences
     val speedMultiplier: StateFlow<Float> = playbackEngine.speedMultiplier
     val repeatEnabled: StateFlow<Boolean> = playbackEngine.repeatEnabled
+
+    private val _isFileLoading = MutableStateFlow(false)
+    val isFileLoading: StateFlow<Boolean> = _isFileLoading.asStateFlow()
+
+    private val _fileLoadingProgress = MutableStateFlow<Float?>(null)
+    val fileLoadingProgress: StateFlow<Float?> = _fileLoadingProgress.asStateFlow()
+
+    private val _fileLoadingMessage = MutableStateFlow("0 Zeilen verarbeitet...")
+    val fileLoadingMessage: StateFlow<String> = _fileLoadingMessage.asStateFlow()
 
     private val _fileName = MutableStateFlow("Sample GPS Track")
     val fileName: StateFlow<String> = _fileName.asStateFlow()
@@ -143,6 +156,9 @@ class MainViewModel(
             if (!savedUriString.isNullOrEmpty()) {
                 val uri = Uri.parse(savedUriString)
                 viewModelScope.launch {
+                    _isFileLoading.value = true
+                    _fileLoadingProgress.value = null
+                    _fileLoadingMessage.value = "0 Zeilen verarbeitet..."
                     try {
                         try {
                             val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -151,8 +167,14 @@ class MainViewModel(
                             e.printStackTrace()
                         }
 
-                        val sentences = withContext(Dispatchers.IO) {
-                            NmeaParser.parseUri(context, uri)
+                        val sentences = withContext(ioDispatcher) {
+                            NmeaParser.parseUri(context, uri) { linesProcessed, totalLines ->
+                                val formatted = String.format(Locale.GERMAN, "%,d", linesProcessed)
+                                _fileLoadingMessage.value = "$formatted Zeilen verarbeitet..."
+                                _fileLoadingProgress.value = if (totalLines != null && totalLines > 0) {
+                                    linesProcessed.toFloat() / totalLines
+                                } else null
+                            }
                         }
 
                         if (sentences.isNotEmpty()) {
@@ -169,6 +191,8 @@ class MainViewModel(
                         e.printStackTrace()
                         clearSavedUri(context)
                         loadSampleData(context)
+                    } finally {
+                        _isFileLoading.value = false
                     }
                 }
             } else {
@@ -199,19 +223,38 @@ class MainViewModel(
 
     fun loadSampleData(context: Context? = null) {
         context?.let { clearSavedUri(it) }
-        viewModelScope.launch(Dispatchers.IO) {
-            val sentences = SampleNmeaData.loadSampleSentences(context)
-            withContext(Dispatchers.Main) {
+        viewModelScope.launch {
+            _isFileLoading.value = true
+            _fileLoadingProgress.value = null
+            _fileLoadingMessage.value = "0 Zeilen verarbeitet..."
+            try {
+                val sentences = withContext(ioDispatcher) {
+                    SampleNmeaData.loadSampleSentences(context) { linesProcessed, totalLines ->
+                        val formatted = String.format(Locale.GERMAN, "%,d", linesProcessed)
+                        _fileLoadingMessage.value = "$formatted Zeilen verarbeitet..."
+                        _fileLoadingProgress.value = if (totalLines != null && totalLines > 0) {
+                            linesProcessed.toFloat() / totalLines
+                        } else null
+                    }
+                }
                 _fileName.value = if (context != null) "sample_data.nmea" else "Sample GPS Log"
                 _recentLogs.value = emptyList()
                 playbackEngine.loadSentences(sentences)
                 _statusMessage.value = "Loaded ${sentences.size} sample NMEA sentences"
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _statusMessage.value = "Error loading sample data: ${e.localizedMessage}"
+            } finally {
+                _isFileLoading.value = false
             }
         }
     }
 
     fun loadUri(context: Context, uri: Uri, name: String?) {
         viewModelScope.launch {
+            _isFileLoading.value = true
+            _fileLoadingProgress.value = null
+            _fileLoadingMessage.value = "0 Zeilen verarbeitet..."
             try {
                 try {
                     val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
@@ -220,8 +263,14 @@ class MainViewModel(
                     e.printStackTrace()
                 }
 
-                val sentences = withContext(Dispatchers.IO) {
-                    NmeaParser.parseUri(context, uri)
+                val sentences = withContext(ioDispatcher) {
+                    NmeaParser.parseUri(context, uri) { linesProcessed, totalLines ->
+                        val formatted = String.format(Locale.GERMAN, "%,d", linesProcessed)
+                        _fileLoadingMessage.value = "$formatted Zeilen verarbeitet..."
+                        _fileLoadingProgress.value = if (totalLines != null && totalLines > 0) {
+                            linesProcessed.toFloat() / totalLines
+                        } else null
+                    }
                 }
 
                 if (sentences.isEmpty()) {
@@ -237,6 +286,8 @@ class MainViewModel(
             } catch (e: Exception) {
                 e.printStackTrace()
                 _statusMessage.value = "Error reading file: ${e.localizedMessage}"
+            } finally {
+                _isFileLoading.value = false
             }
         }
     }
@@ -256,6 +307,8 @@ class MainViewModel(
     fun stop() = playbackEngine.stop()
 
     fun seekTo(index: Int) = playbackEngine.seekTo(index)
+
+    fun seekToLine(line: Int) = playbackEngine.seekToLine(line)
 
     fun seekToProgress(fraction: Float) = playbackEngine.seekToProgress(fraction)
 

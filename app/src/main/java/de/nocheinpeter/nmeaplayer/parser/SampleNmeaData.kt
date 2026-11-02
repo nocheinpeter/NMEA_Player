@@ -15,13 +15,16 @@ object SampleNmeaData {
         ${'$'}GPGGA,123520.00,4807.039,N,01131.001,E,1,08,0.9,545.5,M,46.9,M,,*46
     """.trimIndent()
 
-    fun loadSampleSentences(context: Context?): List<NmeaSentence> {
+    fun loadSampleSentences(
+        context: Context?,
+        onProgress: ((linesProcessed: Int, totalLines: Int?) -> Unit)? = null
+    ): List<NmeaSentence> {
         if (context != null) {
-            val fromAsset = NmeaParser.parseAsset(context, SAMPLE_ASSET_FILE)
+            val fromAsset = NmeaParser.parseAsset(context, SAMPLE_ASSET_FILE, onProgress = onProgress)
             if (fromAsset.isNotEmpty()) {
                 return fromAsset
             }
         }
-        return NmeaParser.parseString(FALLBACK_RAW_LOG)
+        return NmeaParser.parseString(FALLBACK_RAW_LOG, onProgress = onProgress)
     }
 }

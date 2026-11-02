@@ -19,4 +19,6 @@
     <string name="action_exit">Exit / Beenden</string>
     <string name="app_subtitle">GPS Log Streamer &amp; Simulator</string>
     <string name="refresh_ip">Refresh Device IP</string>
+    <string name="file_loading_title">Loading NMEA File&#8230;</string>
+    <string name="file_loading_default_msg">Reading NMEA log lines&#8230;</string>
 </resources>

@@ -36,6 +36,7 @@ class NmeaPlaybackEngine(
 
     private val _currentTimeString = MutableStateFlow("--:--:--")
     val currentTimeString: StateFlow<String> = _currentTimeString.asStateFlow()
+    val currentUtcTime: StateFlow<String> = currentTimeString
 
     private val _progress = MutableStateFlow(0.0f)
     val progress: StateFlow<Float> = _progress.asStateFlow()
@@ -55,6 +56,33 @@ class NmeaPlaybackEngine(
     var onSentenceBroadcast: ((NmeaSentence) -> Unit)? = null
 
     /**
+     * Finds the UTC time formatted string for the sentence at [index].
+     * If the sentence at [index] does not have a timestamp, looks up the nearest preceding sentence
+     * with a valid timestamp so that the UTC timestamp display updates smoothly while seeking.
+     */
+    fun findFormattedTimeForIndex(index: Int): String {
+        val list = sentencesList
+        if (list.isEmpty()) return "--:--:--"
+        val targetIndex = index.coerceIn(0, max(0, list.size - 1))
+
+        for (i in targetIndex downTo 0) {
+            val time = list[i].timeFormatted
+            if (time != null) {
+                return time
+            }
+        }
+
+        for (i in targetIndex + 1 until list.size) {
+            val time = list[i].timeFormatted
+            if (time != null) {
+                return time
+            }
+        }
+
+        return "--:--:--"
+    }
+
+    /**
      * Loads a list of parsed NMEA sentences and resets engine state.
      */
     fun loadSentences(sentences: List<NmeaSentence>) {
@@ -66,7 +94,7 @@ class NmeaPlaybackEngine(
         if (sentences.isNotEmpty()) {
             val first = sentences[0]
             _currentSentence.value = first
-            _currentTimeString.value = first.timeFormatted ?: "--:--:--"
+            _currentTimeString.value = findFormattedTimeForIndex(0)
         } else {
             _currentSentence.value = null
             _currentTimeString.value = "--:--:--"
@@ -106,7 +134,7 @@ class NmeaPlaybackEngine(
         if (sentencesList.isNotEmpty()) {
             val first = sentencesList[0]
             _currentSentence.value = first
-            _currentTimeString.value = first.timeFormatted ?: "--:--:--"
+            _currentTimeString.value = findFormattedTimeForIndex(0)
         }
     }
 
@@ -120,13 +148,16 @@ class NmeaPlaybackEngine(
         _currentIndex.value = targetIndex
         val sentence = list.getOrNull(targetIndex) ?: return
         _currentSentence.value = sentence
-        if (sentence.timeFormatted != null) {
-            _currentTimeString.value = sentence.timeFormatted
-        }
+        _currentTimeString.value = findFormattedTimeForIndex(targetIndex)
         _progress.value = if (list.size > 1) {
             targetIndex.toFloat() / (list.size - 1)
         } else 1.0f
     }
+
+    /**
+     * Seeks to a specific line/sentence index in the log (alias for [seekTo]).
+     */
+    fun seekToLine(lineIndex: Int) = seekTo(lineIndex)
 
     /**
      * Seeks playback to a fractional progress (0.0f to 1.0f).
@@ -165,9 +196,7 @@ class NmeaPlaybackEngine(
                 val sentence = list.getOrNull(index) ?: break
 
                 _currentSentence.value = sentence
-                if (sentence.timeFormatted != null) {
-                    _currentTimeString.value = sentence.timeFormatted
-                }
+                _currentTimeString.value = findFormattedTimeForIndex(index)
                 _progress.value = if (list.size > 1) {
                     index.toFloat() / (list.size - 1)
                 } else 1.0f
