@@ -2,9 +2,12 @@ package de.nocheinpeter.nmeaplayer.ui
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -41,7 +44,6 @@ import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerSettingsNew
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.Restore
 import androidx.compose.material.icons.filled.Stop
@@ -96,6 +98,19 @@ import de.nocheinpeter.nmeaplayer.server.ClientInfo
 import de.nocheinpeter.nmeaplayer.server.ServerState
 import de.nocheinpeter.nmeaplayer.ui.theme.NMEAPlayerTheme
 import de.nocheinpeter.nmeaplayer.viewmodel.MainViewModel
+
+class OpenDocumentWithInitialUri(
+    private val getInitialUri: () -> Uri? = { null }
+) : ActivityResultContracts.OpenDocument() {
+    override fun createIntent(context: Context, input: Array<String>): Intent {
+        val intent = super.createIntent(context, input)
+        val initialUri = getInitialUri()
+        if (initialUri != null) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
+        }
+        return intent
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -189,9 +204,12 @@ fun NmeaPlayerScreen(
     }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
+        contract = OpenDocumentWithInitialUri(
+            getInitialUri = { viewModel.getLastDirectoryUri(context) }
+        )
     ) { uri: Uri? ->
         uri?.let {
+            viewModel.saveLastDirectoryUri(context, uri)
             var displayName: String? = null
             try {
                 context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -245,14 +263,6 @@ fun NmeaPlayerScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.refreshIp() }) {
-                        Icon(
-                            imageVector = Icons.Default.Refresh,
-                            contentDescription = stringResource(R.string.refresh_ip),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    }
-
                     Button(
                         onClick = { viewModel.exitApp(context, activity) },
                         colors = ButtonDefaults.buttonColors(
@@ -308,8 +318,7 @@ fun NmeaPlayerScreen(
                                 checkAndRequestNotificationPermission()
                                 viewModel.startServer(context)
                             },
-                            onStopServer = { viewModel.stopServer(context) },
-                            onRefreshIp = viewModel::refreshIp
+                            onStopServer = { viewModel.stopServer(context) }
                         )
 
                         FileSelectionCard(
@@ -397,8 +406,7 @@ fun NmeaPlayerScreen(
                                 checkAndRequestNotificationPermission()
                                 viewModel.startServer(context)
                             },
-                            onStopServer = { viewModel.stopServer(context) },
-                            onRefreshIp = viewModel::refreshIp
+                            onStopServer = { viewModel.stopServer(context) }
                         )
                     }
 
@@ -638,7 +646,6 @@ fun ServerConfigCard(
     onPortInputChanged: (String) -> Unit,
     onStartServer: () -> Unit,
     onStopServer: () -> Unit,
-    onRefreshIp: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Card(
@@ -651,24 +658,11 @@ fun ServerConfigCard(
             modifier = Modifier.padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "TCP Port Configuration",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
-
-                IconButton(onClick = onRefreshIp) {
-                    Icon(
-                        imageVector = Icons.Default.Refresh,
-                        contentDescription = "Refresh IP"
-                    )
-                }
-            }
+            Text(
+                text = "TCP Port Configuration",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
+            )
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

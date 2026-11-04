@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import de.nocheinpeter.nmeaplayer.engine.NmeaPlaybackEngine
@@ -37,6 +38,7 @@ class MainViewModel(
         const val KEY_PORT = "tcp_port"
         const val KEY_URI = "saved_nmea_uri"
         const val KEY_FILE_NAME = "saved_file_name"
+        const val KEY_LAST_DIRECTORY_URI = "key_last_directory_uri"
         const val DEFAULT_PORT = 10110
     }
 
@@ -149,59 +151,60 @@ class MainViewModel(
         }
     }
 
-    fun loadSavedData(context: Context) {
+    fun getDirectoryUri(context: Context, uri: Uri): Uri {
         try {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val savedUriString = prefs.getString(KEY_URI, null)
-            if (!savedUriString.isNullOrEmpty()) {
-                val uri = Uri.parse(savedUriString)
-                viewModelScope.launch {
-                    _isFileLoading.value = true
-                    _fileLoadingProgress.value = null
-                    _fileLoadingMessage.value = "0 Zeilen verarbeitet..."
-                    try {
-                        try {
-                            val takeFlags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                            context.contentResolver.takePersistableUriPermission(uri, takeFlags)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+            if (DocumentsContract.isDocumentUri(context, uri)) {
+                val docId = DocumentsContract.getDocumentId(uri)
+                val authority = uri.authority
+                if (docId != null && authority != null) {
+                    val lastSlash = docId.lastIndexOf('/')
+                    if (lastSlash != -1) {
+                        val parentDocId = docId.substring(0, lastSlash)
+                        return DocumentsContract.buildDocumentUri(authority, parentDocId)
+                    } else {
+                        val colonIndex = docId.indexOf(':')
+                        if (colonIndex != -1) {
+                            val parentDocId = docId.substring(0, colonIndex + 1)
+                            return DocumentsContract.buildDocumentUri(authority, parentDocId)
                         }
-
-                        val sentences = withContext(ioDispatcher) {
-                            NmeaParser.parseUri(context, uri) { linesProcessed, totalLines ->
-                                val formatted = String.format(Locale.GERMAN, "%,d", linesProcessed)
-                                _fileLoadingMessage.value = "$formatted Zeilen verarbeitet..."
-                                _fileLoadingProgress.value = if (totalLines != null && totalLines > 0) {
-                                    linesProcessed.toFloat() / totalLines
-                                } else null
-                            }
-                        }
-
-                        if (sentences.isNotEmpty()) {
-                            val savedName = prefs.getString(KEY_FILE_NAME, null) ?: "Loaded Log (${sentences.size} lines)"
-                            _fileName.value = savedName
-                            _recentLogs.value = emptyList()
-                            playbackEngine.loadSentences(sentences)
-                            _statusMessage.value = "Loaded $savedName"
-                        } else {
-                            clearSavedUri(context)
-                            loadSampleData(context)
-                        }
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        clearSavedUri(context)
-                        loadSampleData(context)
-                    } finally {
-                        _isFileLoading.value = false
                     }
                 }
-            } else {
-                loadSampleData(context)
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            loadSampleData(context)
         }
+        return uri
+    }
+
+    fun saveLastDirectoryUri(context: Context, uri: Uri) {
+        try {
+            val dirUri = getDirectoryUri(context, uri)
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            prefs.edit()
+                .putString(KEY_LAST_DIRECTORY_URI, dirUri.toString())
+                .apply()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    fun getLastDirectoryUri(context: Context): Uri? {
+        return try {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val uriString = prefs.getString(KEY_LAST_DIRECTORY_URI, null)
+            if (!uriString.isNullOrEmpty()) {
+                Uri.parse(uriString)
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun loadSavedData(context: Context) {
+        loadSampleData(context)
     }
 
     fun onPortInputChanged(input: String, context: Context? = null) {
