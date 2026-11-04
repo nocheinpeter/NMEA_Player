@@ -10,7 +10,11 @@
 
 Die App liest NMEA 0183- und AIS-Daten zeilenweise aus lokalen Textdateien ein und überträgt diese über ein lokales TCP-Netzwerk an verbundene Marine- und GPS-Navigationsclients.
 
-Aktuelle Pre-Release: https://github.com/nocheinpeter/NMEA_Player/releases/download/release2061101/NMEAPlayer-release.apk
+Aktuelle Release: 
+- https://github.com/nocheinpeter/NMEA_Player/releases/download/release20261104/NMEAPlayer-release-20261104.apk
+
+Ältere Releases:
+- https://github.com/nocheinpeter/NMEA_Player/releases/download/release2061101/NMEAPlayer-release.apk
 
 
 # Konfiguration
